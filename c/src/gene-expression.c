@@ -18,14 +18,14 @@
 #define ODE_TIMESTEPS 100
 
 #define MUTATION_PROBABILITY 0.2
-#define DOUBLE_MUTATION_PROBABILITY 0.05
+#define DOUBLE_MUTATION_PROBABILITY 0.1
 #define TRIPLE_MUTATION_PROBABILITY 0.05
 #define QUADRUPLE_MUTATION_PROBABILITY 0.00
 
-#define POPULATION_SIZE 100000
-#define SURVIVOR_SIZE   50000
+#define POPULATION_SIZE 10000
+#define SURVIVOR_SIZE   5000
 
-#define GENERATIONS 1000
+#define GENERATIONS 500
 
 #define NUM_THREADS 4
 
@@ -207,7 +207,7 @@ int main(int argc, char *argv[]) {
     printf("Average worst fitness: %f\n", population[POPULATION_SIZE - 1]->fitness);
     printf("Average median fitness: %f\n", population[POPULATION_SIZE / 2]->fitness);
     */
-    printf("Generation %i best fitness: %f, average: %f\n", generation, population[0]->fitness, avg);
+    //printf("Generation %i best fitness: %f, average: %f\n", generation, population[0]->fitness, avg);
 
     if(population[0]->fitness < 0.0005) {
       printf("Found zero\n");
@@ -250,7 +250,9 @@ int main(int argc, char *argv[]) {
         chromosome_mutate(population[chr_index]);
       }
     }
+  }
 
+  printf("Best fitness: %f\n", population[0]->fitness);
   base_tree_display(gene_to_tree(population[0]->gene1));
   printf("\n");
 
@@ -260,8 +262,9 @@ int main(int argc, char *argv[]) {
   base_tree_display(gene_to_tree(population[0]->gene3));
   printf("\n");
 
+  printf("\n");
 
-  }
+
   chromosome_destroy(target_chromosome);
 
   return 0;
