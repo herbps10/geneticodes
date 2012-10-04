@@ -159,6 +159,41 @@ void base_tree_display(base_node *node)
   }
 }
 
+char *base_tree_string(base_node *node)
+{
+  char *str;
+
+  if(node->base->terminal == true)
+  {
+    if(node->base->value == '1')
+    {
+      str = "-1";
+    }
+    else if(node->base->value == '!')
+    {
+      str = "1";
+    } 
+    else
+    {
+      str = malloc(sizeof(char) * 2);
+      sprintf(str, "%c", node->base->value);
+    }
+  }
+  else
+  {
+    char *left, *right;
+
+    left = base_tree_string(node->prev);
+
+    right = base_tree_string(node->next);
+
+    str = malloc(sizeof(char) * (4 + strlen(left) + strlen(right)));
+    sprintf(str, "%c%s%c%s%c", '(', left, node->base->value, right, ')');
+  }
+
+  return str;
+}
+
 void base_tree_destroy(base_node *node)
 {
   if(node->prev != NULL)

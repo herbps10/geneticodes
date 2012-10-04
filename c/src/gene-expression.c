@@ -4,6 +4,7 @@
 #include <time.h>
 #include <stdbool.h>
 #include <pthread.h>
+#include <string.h>
 
 #define EQN_GENE_HEAD_LENGTH 6
 #define EQN_GENE_TAIL_LENGTH 7
@@ -134,9 +135,22 @@ void update_fitnesses(chromosome **population, double *target_S, double *target_
   }
 }
 
+int get_random_seed()
+{
+  srand(time(NULL));
+  int random_seed = rand_lim(1000000);
+  srand(random_seed);
+
+  return random_seed;
+}
+
 
 int main(int argc, char *argv[]) {
-  srand(time(NULL));
+  // Initialize the output data file
+  FILE *file = fopen("data/runs.csv", "w");
+
+  fprintf(file, "seed, timesteps, S, I, R, end_fitness, single_mutation_probability, double_mutation_probability, triple_mutation_probability, quadruple_mutation_probability, population_size, survivor_size, ode_timesteps, head_terminal_probability, head_length, tail_length\n");
+
 
   chromosome *target_chromosome = chromosome_create();
 
@@ -166,106 +180,144 @@ int main(int argc, char *argv[]) {
   */
 
 
-  ///////////////
-  // ALGORITHM //
-  ///////////////
-
   chromosome *population[POPULATION_SIZE];
 
-  // Randomize initial population
-  for(int chr_index = 0; chr_index < POPULATION_SIZE; chr_index++)
+  int run_index = 0;
+  int successes = 0;
+
+  while(true)
   {
-      population[chr_index] = chromosome_create();
-      chromosome_randomize(population[chr_index]);
+    int random_seed = get_random_seed();
 
-      //set_gene(population[chr_index]->gene1, target_gene1);
-      //set_gene(population[chr_index]->gene3, target_gene3);
-  }
-
-  ///////////////////////
-  // GENETIC ITERATION //
-  ///////////////////////
-
-  for(int generation = 0; generation < GENERATIONS; generation++)
-  {
-    // Calculate fitnesses
-    update_fitnesses(population, target_S, target_I, target_R);
-
-    // Sort by fitness
-    qsort(population, POPULATION_SIZE, sizeof(population) / POPULATION_SIZE, chromosome_compare);
-
-    // Get the average fitness
-    double avg = 0;
-    
-    for(int i = 0; i < POPULATION_SIZE; i++)
+    ///////////////
+    // ALGORITHM //
+    ///////////////
+    // Randomize initial population
+    for(int chr_index = 0; chr_index < POPULATION_SIZE; chr_index++)
     {
-      avg += population[i]->fitness / POPULATION_SIZE;
+        population[chr_index] = chromosome_create();
+        chromosome_randomize(population[chr_index]);
+
+        //set_gene(population[chr_index]->gene1, target_gene1);
+        //set_gene(population[chr_index]->gene3, target_gene3);
     }
 
-    /*
-    printf("Average fitness: %f\n", avg);
-    printf("Average worst fitness: %f\n", population[POPULATION_SIZE - 1]->fitness);
-    printf("Average median fitness: %f\n", population[POPULATION_SIZE / 2]->fitness);
-    */
-    //printf("Generation %i best fitness: %f, average: %f\n", generation, population[0]->fitness, avg);
+    ///////////////////////
+    // GENETIC ITERATION //
+    ///////////////////////
 
-    if(population[0]->fitness < 0.0005) {
-      printf("Found zero\n");
-      break;
-    }
-
-    // Let the best ones go to the next generation, although they mutate.
-    // The worst ones are regenerated from the best ones.
-
-    for(int chr_index = POPULATION_SIZE - 1; chr_index >= 0; chr_index--)
+    for(int generation = 0; generation < GENERATIONS; generation++)
     {
-      if(chr_index < SURVIVOR_SIZE)
+      // Calculate fitnesses
+      update_fitnesses(population, target_S, target_I, target_R);
+
+      // Sort by fitness
+      qsort(population, POPULATION_SIZE, sizeof(population) / POPULATION_SIZE, chromosome_compare);
+
+      // Get the average fitness
+      double avg = 0;
+      
+      for(int i = 0; i < POPULATION_SIZE; i++)
       {
-        // These are the ones that survive to the next generation
-        chromosome_mutate(population[chr_index]);
+        avg += population[i]->fitness / POPULATION_SIZE;
       }
-      else
+
+      /*
+      printf("Average fitness: %f\n", avg);
+      printf("Average worst fitness: %f\n", population[POPULATION_SIZE - 1]->fitness);
+      printf("Average median fitness: %f\n", population[POPULATION_SIZE / 2]->fitness);
+      */
+      //printf("Generation %i best fitness: %f, average: %f\n", generation, population[0]->fitness, avg);
+
+      if(population[0]->fitness < 0.0005) {
+        printf("Found zero\n");
+        break;
+      }
+
+      // Let the best ones go to the next generation, although they mutate.
+      // The worst ones are regenerated from the best ones.
+
+      for(int chr_index = POPULATION_SIZE - 1; chr_index >= 0; chr_index--)
       {
-        // These ones are killed off and regenerated
-        
-        int parent1 = rand_lim(SURVIVOR_SIZE - 1);
-
-        // Get the second parent, making sure it isn't the same as the first one
-        int parent2;
-        do
+        if(chr_index < SURVIVOR_SIZE)
         {
-          parent2 = rand_lim(SURVIVOR_SIZE - 1);
-        }
-        while(parent2 == parent1);
-
-        if(rand_one() < 0.5)
-        {
-          chromosomes_recombine(population[parent1], population[parent2], population[chr_index]);
+          // These are the ones that survive to the next generation
+          chromosome_mutate(population[chr_index]);
         }
         else
         {
-          chromosomes_exchange(population[parent1], population[parent2], population[chr_index]);
-        }
+          // These ones are killed off and regenerated
+          
+          int parent1 = rand_lim(SURVIVOR_SIZE - 1);
 
-        chromosome_mutate(population[chr_index]);
+          // Get the second parent, making sure it isn't the same as the first one
+          int parent2;
+          do
+          {
+            parent2 = rand_lim(SURVIVOR_SIZE - 1);
+          }
+          while(parent2 == parent1);
+
+          if(rand_one() < 0.5)
+          {
+            chromosomes_recombine(population[parent1], population[parent2], population[chr_index]);
+          }
+          else
+          {
+            chromosomes_exchange(population[parent1], population[parent2], population[chr_index]);
+          }
+
+          chromosome_mutate(population[chr_index]);
+        }
       }
     }
+
+    fprintf( file, "%i, %i, %s, %s, %s, %f, %f, %f, %f, %f, %i, %i, %i, %i, %i, %i\n",
+      random_seed,
+      GENERATIONS,
+      base_tree_string(gene_to_tree(population[0]->gene1)),
+      base_tree_string(gene_to_tree(population[0]->gene2)),
+      base_tree_string(gene_to_tree(population[0]->gene3)),
+      population[0]->fitness,
+      MUTATION_PROBABILITY,
+      DOUBLE_MUTATION_PROBABILITY,
+      TRIPLE_MUTATION_PROBABILITY,
+      QUADRUPLE_MUTATION_PROBABILITY,
+      POPULATION_SIZE,
+      SURVIVOR_SIZE,
+      ODE_TIMESTEPS,
+      HEAD_TERMINAL_PROBABILITY,
+      EQN_GENE_HEAD_LENGTH,
+      EQN_GENE_TAIL_LENGTH );
+
+    /*
+    printf("Best fitness: %f\n", population[0]->fitness);
+    base_tree_display(gene_to_tree(population[0]->gene1));
+    printf("\n");
+
+    base_tree_display(gene_to_tree(population[0]->gene2));
+    printf("\n");
+
+    base_tree_display(gene_to_tree(population[0]->gene3));
+    printf("\n");
+
+    printf("\n");
+    */
+
+    if(population[0]->fitness < 0.0005) {
+      successes++;
+    }
+    
+    run_index++;
+
+    float success_rate = 100.0 * ((float)successes / (float)run_index);
+
+    printf("Success rate: %i/%i = %f percent\n", successes, run_index, success_rate);
   }
 
-  printf("Best fitness: %f\n", population[0]->fitness);
-  base_tree_display(gene_to_tree(population[0]->gene1));
-  printf("\n");
-
-  base_tree_display(gene_to_tree(population[0]->gene2));
-  printf("\n");
-
-  base_tree_display(gene_to_tree(population[0]->gene3));
-  printf("\n");
-
-  printf("\n");
-
-
   chromosome_destroy(target_chromosome);
+
+  fclose(file);
 
   return 0;
 }
