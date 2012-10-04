@@ -149,7 +149,12 @@ int main(int argc, char *argv[]) {
   // Initialize the output data file
   FILE *file = fopen("data/runs.csv", "w");
 
+	printf("Here\n");
+
   fprintf(file, "seed, timesteps, S, I, R, end_fitness, single_mutation_probability, double_mutation_probability, triple_mutation_probability, quadruple_mutation_probability, population_size, survivor_size, ode_timesteps, head_terminal_probability, head_length, tail_length\n");
+  fclose(file);
+
+  file = fopen("data/runs.csv", "w");
 
 
   chromosome *target_chromosome = chromosome_create();
