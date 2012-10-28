@@ -127,6 +127,7 @@ base_node *gene_to_tree(base **gene)
   }
 
   base_queue_simple_destroy(operators);
+  base_queue_simple_destroy(next_row_operators);
 
   return root;
 }
@@ -165,15 +166,6 @@ void chromosome_eval(chromosome *c, double *S_results, double *I_results, double
     S += S_next;
     I += I_next;
     R += R_next;
-
-    if(S > 1) S = 1;
-    if(I > 1) I = 1;
-    if(R > 1) R = 1;
-
-    if(S < 0) S = 0;
-    if(I < 0) I = 0;
-    if(R < 0) R = 0;
-
   }
 
   base_tree_destroy(tree_s);
@@ -227,6 +219,10 @@ void chromosome_randomize(chromosome *c)
   gene_randomize(c->gene1);
   gene_randomize(c->gene2);
   gene_randomize(c->gene3);
+
+  c->beta = rand_one() * 5;
+  c->gamma = rand_one() * 5;
+  c->mu = rand_one() * 5;
 }
 
 double chromosome_fitness(chromosome *c, double *target_S, double *target_I, double *target_R)
@@ -376,6 +372,19 @@ void chromosomes_copy(chromosome *c, chromosome *target)
 
 void chromosomes_recombine(chromosome *c1, chromosome *c2, chromosome *target)
 {
+  target->beta = c1->beta;
+  target->gamma = c2->gamma;
+
+  /*
+  if(rand_one() < 0.5)
+  {
+    target->mu = c1->mu;
+  }
+  else
+  {
+    target->mu = c2->mu;
+  }
+
   if(rand_one() < 0.3333)
   {
     genes_recombine(c1->gene1, c2->gene1, target->gene1);
@@ -402,10 +411,23 @@ void chromosomes_recombine(chromosome *c1, chromosome *c2, chromosome *target)
   {
     genes_copy(c1->gene3, target->gene3);
   }
+  */
 }
 
 void chromosomes_exchange(chromosome *c1, chromosome *c2, chromosome *target)
 {
+  target->beta = c1->beta;
+  target->gamma = c2->gamma;
+
+  if(rand_one() < 0.5)
+  {
+    target->mu = c1->mu;
+  }
+  else
+  {
+    target->mu = c2->mu;
+  }
+
   if(rand_one() < 0.3333)
   {
     genes_exchange(c1->gene1, c2->gene1, target->gene1);
@@ -441,6 +463,23 @@ void chromosome_mutate(chromosome *c)
   gene_mutate(c->gene1);
   gene_mutate(c->gene2);
   gene_mutate(c->gene3);
+
+  /*
+  if(rand_one() < CONSTANT_MUTATION_PROBABILITY)
+  {
+    c->beta += (rand_one() / 4) - 0.125;
+  }
+
+  if(rand_one() < CONSTANT_MUTATION_PROBABILITY)
+  {
+    c->gamma += (rand_one() / 4) - 0.125;
+  }
+
+  if(rand_one() < CONSTANT_MUTATION_PROBABILITY)
+  {
+    c->mu += (rand_one() / 4) - 0.125;
+  }
+  */
 }
 
 int chromosome_compare(const void *a, const void *b)

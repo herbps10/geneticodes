@@ -16,17 +16,18 @@
 
 #define HEAD_TERMINAL_PROBABILITY 3 // The chance of a terminal being generated in the head is 1/HEAD_TERMINAL_PROBABILITY
 
-#define ODE_TIMESTEPS 100
+#define ODE_TIMESTEPS 50
 
-#define MUTATION_PROBABILITY 0.2
-#define DOUBLE_MUTATION_PROBABILITY 0.1
-#define TRIPLE_MUTATION_PROBABILITY 0.05
-#define QUADRUPLE_MUTATION_PROBABILITY 0.00
+#define MUTATION_PROBABILITY 0.02
+#define DOUBLE_MUTATION_PROBABILITY 0.01
+#define TRIPLE_MUTATION_PROBABILITY 0.01
+#define QUADRUPLE_MUTATION_PROBABILITY 0.005
+#define CONSTANT_MUTATION_PROBABILITY 0.2
 
-#define POPULATION_SIZE 10000
-#define SURVIVOR_SIZE   5000
+#define POPULATION_SIZE 100
+#define SURVIVOR_SIZE   10
 
-#define GENERATIONS 500
+#define GENERATIONS 100
 
 #define NUM_THREADS 4
 
@@ -58,6 +59,7 @@ double rand_one()
 #include "base_node.c"
 #include "stack.c"
 #include "node_pool.c"
+#include "differential-evolution.c"
 
 struct thread_data
 {
@@ -88,8 +90,14 @@ void *fitness_thread(void *thread_data)
   int start = id * range;
   int end = start + range;
 
+  if(id == NUM_THREADS - 1 && end != POPULATION_SIZE) {
+    end = POPULATION_SIZE;
+  }
+
   for(int i = start; i < end; i++)
   {
+    // Optimize the parameters
+    optimize_parameters(population[i], target_S, target_I, target_R);
     chromosome_fitness(population[i], target_S, target_I, target_R);
   }
 
@@ -124,7 +132,6 @@ void update_fitnesses(chromosome **population, double *target_S, double *target_
 
     threads[thread] = pthread_create(&threads[thread], &attr, fitness_thread, (void *) &thread_data_array[thread]);
 
-
     pthread_attr_destroy(&attr);
   }
 
@@ -146,10 +153,11 @@ int get_random_seed()
 
 
 int main(int argc, char *argv[]) {
+
   // Initialize the output data file
   FILE *file = fopen("data/runs.csv", "w");
 
-  fprintf(file, "seed, timesteps, S, I, R, end_fitness, single_mutation_probability, double_mutation_probability, triple_mutation_probability, quadruple_mutation_probability, population_size, survivor_size, ode_timesteps, head_terminal_probability, head_length, tail_length\n");
+  fprintf(file, "seed, timesteps, S, I, R, beta, gamma, mu, end_fitness, single_mutation_probability, double_mutation_probability, triple_mutation_probability, quadruple_mutation_probability, population_size, survivor_size, ode_timesteps, head_terminal_probability, head_length, tail_length\n");
   fflush(file);
   
   chromosome *target_chromosome = chromosome_create();
@@ -182,12 +190,19 @@ int main(int argc, char *argv[]) {
 
   chromosome *population[POPULATION_SIZE];
 
+  for(int chr_index = 0; chr_index < POPULATION_SIZE; chr_index++)
+  {
+        population[chr_index] = chromosome_create();
+  }
+
   int run_index = 0;
   int successes = 0;
 
-  while(true)
-  {
+  //while(true)
+  //{
     int random_seed = get_random_seed();
+
+    printf("Random seed: %i\n", random_seed);
 
     ///////////////
     // ALGORITHM //
@@ -195,8 +210,11 @@ int main(int argc, char *argv[]) {
     // Randomize initial population
     for(int chr_index = 0; chr_index < POPULATION_SIZE; chr_index++)
     {
-        population[chr_index] = chromosome_create();
         chromosome_randomize(population[chr_index]);
+
+        population[chr_index]->beta = 0;
+        population[chr_index]->gamma = 0;
+        population[chr_index]->mu = 0;
 
         //set_gene(population[chr_index]->gene1, target_gene1);
         //set_gene(population[chr_index]->gene3, target_gene3);
@@ -269,15 +287,34 @@ int main(int argc, char *argv[]) {
 
           chromosome_mutate(population[chr_index]);
         }
+
+
       }
+
+      printf("Best fitness: %f\n", population[0]->fitness);
+      base_tree_display(gene_to_tree(population[0]->gene1));
+      printf("\n");
+
+      base_tree_display(gene_to_tree(population[0]->gene2));
+      printf("\n");
+
+      base_tree_display(gene_to_tree(population[0]->gene3));
+      printf("\n");
+
+      printf("beta = %f, gamma = %f, mu = %f\n", population[0]->beta, population[0]->gamma, population[0]->mu);
+
+      printf("Generation: %i\n", generation);
     }
 
-    fprintf( file, "%i, %i, %s, %s, %s, %f, %f, %f, %f, %f, %i, %i, %i, %i, %i, %i\n",
+    fprintf( file, "%i, %i, %s, %s, %s, %f, %f, %f, %f, %f, %f, %f, %f, %i, %i, %i, %i, %i, %i\n",
       random_seed,
       GENERATIONS,
       base_tree_string(gene_to_tree(population[0]->gene1)),
       base_tree_string(gene_to_tree(population[0]->gene2)),
       base_tree_string(gene_to_tree(population[0]->gene3)),
+      population[0]->beta,
+      population[0]->gamma,
+      population[0]->mu,
       population[0]->fitness,
       MUTATION_PROBABILITY,
       DOUBLE_MUTATION_PROBABILITY,
@@ -292,7 +329,6 @@ int main(int argc, char *argv[]) {
     
     fflush(file);
 
-    /*
     printf("Best fitness: %f\n", population[0]->fitness);
     base_tree_display(gene_to_tree(population[0]->gene1));
     printf("\n");
@@ -303,8 +339,9 @@ int main(int argc, char *argv[]) {
     base_tree_display(gene_to_tree(population[0]->gene3));
     printf("\n");
 
+    printf("beta = %f, gamma = %f, mu = %f\n", population[0]->beta, population[0]->gamma, population[0]->mu);
+
     printf("\n");
-    */
 
     if(population[0]->fitness < 0.0005) {
       successes++;
@@ -315,6 +352,15 @@ int main(int argc, char *argv[]) {
     float success_rate = 100.0 * ((float)successes / (float)run_index);
 
     printf("Success rate: %i/%i = %f percent\n", successes, run_index, success_rate);
+
+    if(run_index == 1) {
+      //break;
+    }
+  //}
+
+  for(int chr_index = 0; chr_index < POPULATION_SIZE; chr_index++)
+  {
+        chromosome_destroy(population[chr_index]);
   }
 
   chromosome_destroy(target_chromosome);
